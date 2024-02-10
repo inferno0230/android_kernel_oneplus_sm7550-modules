@@ -21,7 +21,11 @@
 #include <linux/notifier.h>
 #include <linux/msm_drm_notify.h>
 #include <soc/oplus/device_info.h>
+#ifdef TOUCHSCREEN_SYNA_TCM2
+#include "../../../../../sm8550/drivers/input/touchscreen/touchpanel_notify/touchpanel_event_notify.h"
+#else
 #include "../../../../../sm8550/drivers/input/touchscreen/oplus_touchscreen_v2/touchpanel_notify/touchpanel_event_notify.h"
+#endif /* TOUCHSCREEN_SYNA_TCM2 */
 #include "dsi_pwr.h"
 #include "oplus_display_panel.h"
 
@@ -244,6 +248,57 @@ error:
 	return rc;
 }
 
+int dsi_panel_read_panel_gamma_reg_unlock(struct dsi_display_ctrl *ctrl,
+		struct dsi_panel *panel, u8 cmd, void *rbuf,  size_t len)
+{
+	int rc = 0;
+	struct dsi_cmd_desc cmdsreq;
+	struct dsi_display *display = get_main_display();
+
+	if (!panel || !ctrl || !ctrl->ctrl) {
+		return -EINVAL;
+	}
+
+	if (!dsi_ctrl_validate_host_state(ctrl->ctrl)) {
+		return 1;
+	}
+
+	memset(&cmdsreq, 0x0, sizeof(cmdsreq));
+	cmdsreq.msg.type = 0x06;
+	cmdsreq.msg.tx_buf = &cmd;
+	cmdsreq.msg.tx_len = 1;
+	cmdsreq.msg.rx_buf = rbuf;
+	cmdsreq.msg.rx_len = len;
+	cmdsreq.msg.flags |= MIPI_DSI_MSG_UNICAST_COMMAND;
+
+	cmdsreq.ctrl_flags = DSI_CTRL_CMD_READ;
+
+	/* For ovaltine rubbish panel, some register need read with LP even if hs cmd on */
+	if (!strcmp(display->panel->name, "boe rm692e5 dsc cmd mode panel")) {
+		cmdsreq.msg.flags |= MIPI_DSI_MSG_USE_LPM;
+	}
+
+	dsi_display_set_cmd_tx_ctrl_flags(display, &cmdsreq);
+	rc = dsi_ctrl_transfer_prepare(ctrl->ctrl, cmdsreq.ctrl_flags);
+	if (rc) {
+		DSI_ERR("prepare for rx cmd transfer failed rc=%d\n", rc);
+		goto error;
+	}
+
+	rc = dsi_ctrl_cmd_transfer(ctrl->ctrl, &cmdsreq);
+
+	if (rc < 0) {
+		pr_err("%s, dsi_display_read_panel_reg rx cmd transfer failed rc=%d\n",
+				__func__,
+				rc);
+	}
+
+	dsi_ctrl_transfer_unprepare(ctrl->ctrl, cmdsreq.ctrl_flags);
+
+error:
+	return rc;
+}
+
 int dsi_panel_read_panel_reg_unlock(struct dsi_display_ctrl *ctrl,
 		struct dsi_panel *panel, u8 cmd, void *rbuf,  size_t len)
 {
@@ -344,14 +399,14 @@ int dsi_display_read_panel_reg(struct dsi_display *display, u8 cmd, void *data,
 		return -EINVAL;
 	}
 
-	if(display->enabled == false) {
+	if(display->panel->panel_initialized == false) {
 		pr_info("%s primary display is disable, try sec display\n", __func__);
 		display = get_sec_display();
 		if (!display) {
 			pr_info("%s sec display is null\n", __func__);
 			return -1;
 		}
-		if (display->enabled == false) {
+		if (display->panel->panel_initialized == false) {
 			pr_info("%s second panel is disabled", __func__);
 			return -1;
 		}
@@ -359,7 +414,7 @@ int dsi_display_read_panel_reg(struct dsi_display *display, u8 cmd, void *data,
 
 	mutex_lock(&display->display_lock);
 	/* if (is_set_seed && (get_oplus_display_power_status() != OPLUS_DISPLAY_POWER_ON)) { */
-	if (display->panel->power_mode != SDE_MODE_DPMS_ON) {
+	if (display->panel->power_mode == SDE_MODE_DPMS_OFF) {
 		pr_err("%s:panel off\n", __func__);
 		goto done;
 	}
@@ -1553,14 +1608,11 @@ static void oplus_display_print_cmd_desc(const struct dsi_panel_cmd_set *cmd_set
 		len += snprintf(buf, sizeof(buf) - len, "%02X ", msg.type);
 		len += snprintf(buf + len, sizeof(buf) - len, "%02X ", 0x00);
 		len += snprintf(buf + len, sizeof(buf) - len, "%02X ", msg.channel);
-		/* Batch Flag */
-		len += snprintf(buf + len, sizeof(buf) - len, "%02X ",
-				(msg.flags & MIPI_DSI_MSG_BATCH_COMMAND) ?
-				MIPI_DSI_MSG_BATCH_COMMAND : 0x00);
-		/* Delay */
+		len += snprintf(buf + len, sizeof(buf) - len, "%02X ", msg.flags);
 		len += snprintf(buf + len, sizeof(buf) - len, "%02X ", cmds->post_wait_ms);
 		len += snprintf(buf + len, sizeof(buf) - len, "%02X %02X",
 				msg.tx_len >> 8, msg.tx_len & 0xFF);
+
 		/* Packet Payload */
 		for (j = 0 ; j < msg.tx_len ; j++) {
 			len += snprintf(buf + len, sizeof(buf) - len, " %02X", tx_buf[j]);
@@ -3078,6 +3130,10 @@ static OPLUS_ATTR(adfr_config, S_IRUGO | S_IWUSR, oplus_adfr_get_config_attr, op
 static OPLUS_ATTR(mux_vsync_switch, S_IRUGO | S_IWUSR, oplus_adfr_get_mux_vsync_switch_attr, oplus_adfr_set_mux_vsync_switch_attr);
 static OPLUS_ATTR(test_te, S_IRUGO | S_IWUSR, oplus_adfr_get_test_te_attr, oplus_adfr_set_test_te_attr);
 #endif /* OPLUS_FEATURE_DISPLAY_ADFR */
+#ifdef OPLUS_FEATURE_DISPLAY_HIGH_PRECISION
+static OPLUS_ATTR(high_precision_rscc_set, S_IRUGO | S_IWUSR, oplus_display_get_high_precision_rscc,
+		oplus_display_set_high_precision_rscc);
+#endif /* OPLUS_FEATURE_DISPLAY_HIGH_PRECISION */
 #ifdef OPLUS_FEATURE_DISPLAY_TEMP_COMPENSATION
 static OPLUS_ATTR(temp_compensation_config, S_IRUGO | S_IWUSR, oplus_temp_compensation_get_config_attr, oplus_temp_compensation_set_config_attr);
 static OPLUS_ATTR(ntc_temp, S_IRUGO | S_IWUSR, oplus_temp_compensation_get_ntc_temp_attr, oplus_temp_compensation_set_ntc_temp_attr);
@@ -3141,6 +3197,9 @@ static struct attribute *oplus_display_attrs[] = {
 	&oplus_attr_mux_vsync_switch.attr,
 	&oplus_attr_test_te.attr,
 #endif /* OPLUS_FEATURE_DISPLAY_ADFR */
+#ifdef OPLUS_FEATURE_DISPLAY_HIGH_PRECISION
+	&oplus_attr_high_precision_rscc_set.attr,
+#endif /* OPLUS_FEATURE_DISPLAY_HIGH_PRECISION */
 #ifdef OPLUS_FEATURE_DISPLAY_TEMP_COMPENSATION
 	&oplus_attr_temp_compensation_config.attr,
 	&oplus_attr_ntc_temp.attr,
@@ -3224,7 +3283,7 @@ int oplus_display_private_api_init(void)
 	if (retval) {
 		goto error_remove_sysfs_group;
 	}
-
+	
 	retval = touchpanel_event_register_notifier(&oplus_input_event_notifier);
 
 	if (retval) {

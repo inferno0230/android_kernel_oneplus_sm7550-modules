@@ -454,6 +454,13 @@ int iris_dsi_send_cmds(struct dsi_panel *panel, struct dsi_cmd_desc *cmds,
 	ops = panel->host->ops;
 
 	for (i = 0; i < count; i++) {
+#ifdef OPLUS_FEATURE_DISPLAY
+		if (!strcmp(panel->name, "AA551 P 3 A0004 dsc cmd mode panel") &&
+				(cmds->msg.flags & 0x08)) {
+			cmds++;
+			continue;
+		}
+#endif /* OPLUS_FEATURE_DISPLAY */
 		vc_id_bak = cmds->msg.channel;
 		cmds->msg.channel = vc_id;
 

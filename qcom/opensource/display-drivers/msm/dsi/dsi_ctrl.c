@@ -1531,7 +1531,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl, struct dsi_cmd_desc *cmd_de
 	msg = &cmd_desc->msg;
 	flags = &cmd_desc->ctrl_flags;
 #ifdef OPLUS_FEATURE_DISPLAY
-		oplus_ctrl_print_cmd_desc(dsi_ctrl, msg);
+	oplus_ctrl_print_cmd_desc(dsi_ctrl, cmd_desc);
 #endif /* OPLUS_FEATURE_DISPLAY */
 
 #if defined(CONFIG_PXLW_IRIS)
@@ -1642,6 +1642,10 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl, struct dsi_cmd_desc *cmd_de
 	}
 
 kickoff:
+#ifdef OPLUS_FEATURE_DISPLAY
+	LCD_DEBUG_CMD("dsi_cmd: kickoff, ctrl_flags=0x%02X, msg_flags=0x%02X",
+			*flags, msg->flags);
+#endif /* OPLUS_FEATURE_DISPLAY */
 	dsi_kickoff_msg_tx(dsi_ctrl, msg, &cmd, &cmd_mem, *flags);
 error:
 	if (buffer)
