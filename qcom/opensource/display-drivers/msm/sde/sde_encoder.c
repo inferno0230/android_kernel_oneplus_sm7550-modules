@@ -5034,7 +5034,6 @@ int oplus_sync_panel_brightness(enum oplus_sync_method method, struct drm_encode
 	struct sde_encoder_phys_cmd_te_timestamp *te_timestamp;
 	s64 us_per_frame;
 	u32 vsync_width;
-	u32 refresh_rate;
 	ktime_t last_te_timestamp;
 	s64 delay;
 
@@ -5134,6 +5133,7 @@ int oplus_sync_panel_brightness_v2(struct drm_encoder *drm_enc)
 	struct sde_encoder_phys_cmd_te_timestamp *te_timestamp;
 	s64 us_per_frame;
 	u32 vsync_width;
+	u32 refresh_rate;
 	ktime_t last_te_timestamp;
 	s64 delay;
 	bool sync_backlight;

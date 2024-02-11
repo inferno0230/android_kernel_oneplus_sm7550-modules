@@ -66,6 +66,10 @@
 #define CAM_ISP_IFE_IN_RES_PHY_7               (CAM_ISP_IFE_IN_RES_BASE + 12)
 
 /* Depricated: Do not use, This is kept for backward compat */
+#define CAM_ISP_IFE_IN_RES_PHY_6               (CAM_ISP_IFE_IN_RES_BASE + 11)
+#define CAM_ISP_IFE_IN_RES_PHY_7               (CAM_ISP_IFE_IN_RES_BASE + 12)
+
+/* Depricated: Do not use, This is kept for backward compat */
 #define CAM_ISP_IFE_IN_RES_MAX                 (CAM_ISP_IFE_IN_RES_BASE + 11)
 
 #endif /* __UAPI_CAM_ISP_IFE_H__ */
