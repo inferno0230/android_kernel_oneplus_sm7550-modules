@@ -252,7 +252,7 @@ static int _iris_configure(u32 display, u32 type, u32 value)
 		pqlt_cur_setting->scurvelevel = value;
 		iris_scurve_enable_set(pqlt_cur_setting->scurvelevel);
 		break;
-	case IRIS_SCALER_PP_FILTER_LEVEL:
+	case IRIS_SR_FILTER_LEVEL:
 		iris_scl_sr1d_filter(1, &value);
 		break;
 	case IRIS_PT_SR_SET:
@@ -571,7 +571,7 @@ static int _iris_configure_ex(u32 display, u32 type, u32 count, u32 *values)
 	case IRIS_SCALER_FILTER_LEVEL:
 		iris_scl_ioinc_filter(count, values);
 		break;
-	case IRIS_SCALER_PP_FILTER_LEVEL:
+	case IRIS_SR_FILTER_LEVEL:
 		iris_scl_sr1d_filter(count, values);
 		break;
 	case IRIS_PT_SR_SET:

@@ -1390,6 +1390,7 @@ static uint32_t iris_cnn_loaded_models[2] = {CNN_NORMAL_MODEL2, CNN_NORMAL_MODEL
 static uint32_t iris_cnn_models[SCL_DATA_PATH_CNT] = {CNN_NORMAL_MODEL1, CNN_NORMAL_MODEL1};
 static uint32_t iris_sr2d_using_level[SCL_2D_PQ_CNT] = {0, 0, 0, 0};
 static uint32_t iris_sr2d_level[SCL_DATA_PATH_CNT][SCL_2D_PQ_CNT] = {{0, 0, 0, 0}, {0, 0, 0, 0}};
+static uint32_t iris_ioinc_filter[FILTER_GROUP_CNT] = {16, 16};
 static bool iris_ptsr_1to1;
 
 
@@ -3006,6 +3007,19 @@ static void _iris_ioinc_group_filter(uint32_t count, uint32_t *values)
 		ip_soft = IOINC1D_LUT_9TAP;
 		ip_sharp = IOINC1D_LUT_SHARP_9TAP;
 	}
+	
+	if (tap == IOINC_TAG5) {
+		IRIS_LOGI("%s(), current filter: [%u, %u], set: [%u, %u]", __func__,
+				iris_ioinc_filter[FILTER_SOFT], iris_ioinc_filter[FILTER_SHARP],
+				values[1], values[2]);
+
+		if (iris_ioinc_filter[FILTER_SOFT] == values[1] &&
+				iris_ioinc_filter[FILTER_SHARP] == values[2])
+			return;
+
+		iris_ioinc_filter[FILTER_SOFT] = values[1];
+		iris_ioinc_filter[FILTER_SHARP] = values[2];
+	}
 
 	/* soft filter */
 	level = 0x00 + values[1]; /* hs_y */
@@ -3045,14 +3059,15 @@ static void _iris_ioinc_specific_filter(uint32_t count, uint32_t *values)
 	group = values[1];
 	type = values[2];
 
-	if (tap == IOINC_TAG5 && group == FILTER_SOFT)
+	if (tap == IOINC_TAG9) {
+	ip = IOINC1D_LUT_9TAP;
+		if (group == FILTER_SHARP)
+			ip = IOINC1D_LUT_SHARP_9TAP;
+	} else {
 		ip = IOINC1D_LUT;
-	else if (tap == IOINC_TAG5 && group == FILTER_SHARP)
-		ip = IOINC1D_LUT_SHARP;
-	else if (tap == IOINC_TAG9 && group == FILTER_SOFT)
-		ip = IOINC1D_LUT_9TAP;
-	else if (tap == IOINC_TAG9 && group == FILTER_SHARP)
-		ip = IOINC1D_LUT_SHARP_9TAP;
+		if (group == FILTER_SHARP)
+			ip = IOINC1D_LUT_SHARP;
+	}
 
 	switch (type) {
 	case FILTER_HS_Y_LEVEL:
@@ -3130,14 +3145,15 @@ static void _iris_ioinc_group_all_filter(uint32_t count,
 	tap = values[0];
 	group = values[1];
 
-	if (tap == IOINC_TAG5 && group == FILTER_SOFT)
+	if (tap == IOINC_TAG9) {
+	ip = IOINC1D_LUT_9TAP;
+		if (group == FILTER_SHARP)
+			ip = IOINC1D_LUT_SHARP_9TAP;
+	} else {
 		ip = IOINC1D_LUT;
-	else if (tap == IOINC_TAG5 && group == FILTER_SHARP)
-		ip = IOINC1D_LUT_SHARP;
-	else if (tap == IOINC_TAG9 && group == FILTER_SOFT)
-		ip = IOINC1D_LUT_9TAP;
-	else if (tap == IOINC_TAG9 && group == FILTER_SHARP)
-		ip = IOINC1D_LUT_SHARP_9TAP;
+		if (group == FILTER_SHARP)
+			ip = IOINC1D_LUT_SHARP;
+	}
 
 	level = 0x00 + values[2]; /* hs_y */
 	iris_init_update_ipopt_t(ip, level, level, 1);
