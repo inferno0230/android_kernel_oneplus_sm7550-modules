@@ -977,8 +977,10 @@ int oplus_panel_pwm_switch_cmdq_delay_handle(void *dsi_panel, enum dsi_cmd_set_t
 			oplus_sde_early_wakeup(panel);
 			oplus_wait_for_vsync(panel);
 		}
-		if (panel->cur_mode->timing.refresh_rate == 60) {
+		if (panel->cur_mode->timing.refresh_rate == 60 || panel->cur_mode->timing.refresh_rate == 90) {
 			oplus_need_to_sync_te(panel);
+		} else if (panel->cur_mode->timing.refresh_rate == 120) {
+			usleep_range(1000, 1020);
 		}
 	}
 
@@ -1015,8 +1017,10 @@ int oplus_panel_cmdq_pack_handle(void *dsi_panel, enum dsi_cmd_set_type type, bo
 					cmd_set_prop_map[type]);
 			oplus_sde_early_wakeup(panel);
 			oplus_wait_for_vsync(panel);
-			if (panel->cur_mode->timing.refresh_rate == 60) {
+			if (panel->cur_mode->timing.refresh_rate == 60 || panel->cur_mode->timing.refresh_rate == 90) {
 				oplus_need_to_sync_te(panel);
+			} else if (panel->cur_mode->timing.refresh_rate == 120) {
+				usleep_range(1000, 1020);
 			}
 		}
 	} else {

@@ -11,6 +11,9 @@
 #include "oplus_bl.h"
 #include "oplus_display_interface.h"
 #include "oplus_display_panel_common.h"
+#ifdef OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT
+#include "oplus_onscreenfingerprint.h"
+#endif /* OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT */
 #if defined(CONFIG_PXLW_IRIS)
 #include "dsi_iris_api.h"
 #endif
@@ -24,6 +27,7 @@ static u32 pwm_switch_next_cmdq = 0;
 static int backlight_onepulse_normal_buf[];
 static int backlight_onepulse_max_buf[];
 ktime_t aod_off_te_timestamp;
+ktime_t lhbm_off_te_timestamp;
 
 int oplus_panel_parse_bl_config(struct dsi_panel *panel)
 {
@@ -366,6 +370,10 @@ void oplus_panel_set_aod_off_te_timestamp(struct dsi_panel *panel) {
 	aod_off_te_timestamp = panel->te_timestamp;
 }
 
+void oplus_panel_set_lhbm_off_te_timestamp(struct dsi_panel *panel) {
+	lhbm_off_te_timestamp = panel->te_timestamp;
+}
+
 void oplus_panel_directional_onepulse_poweron_handle(
 	struct dsi_panel *panel,
 	u32 pwm_switch_state_last) {
@@ -387,6 +395,30 @@ void oplus_panel_directional_onepulse_poweron_handle(
 		}
 	}
 }
+
+void oplus_panel_directional_onepulse_lhbm_off_handle(
+	struct dsi_panel *panel,
+	u32 pwm_switch_state_last) {
+	ktime_t cur_time;
+	s64 interval;
+	s64 delay;
+	s64 us_per_frame;
+
+	us_per_frame = panel->cur_mode->priv_info->vsync_period;
+	if (oplus_panel_pwm_onepulse_is_enabled(panel) && pwm_switch_state_last != panel->oplus_pwm_switch_state) {
+		cur_time = ktime_get();
+		interval = ktime_to_us(ktime_sub(cur_time, lhbm_off_te_timestamp));
+		if (interval > us_per_frame && interval < us_per_frame * 2) {
+			/* pwm switch cmd shound not send in the frame next to lhbm off */
+			delay = us_per_frame * 2 - interval;
+			if (delay > 0) {
+				LCD_INFO("need to delay, for the interval between the te of lhbm off and cur time was %d\n", delay);
+				usleep_range(delay, delay + 200);
+			}
+		}
+	}
+}
+
 
 static void oplus_panel_directional_onepulse_status_judge(struct dsi_panel *panel,
 	u32 bl_lvl,
@@ -444,18 +476,28 @@ static int oplus_panel_directional_onepulse_cmd_tx(struct dsi_panel *panel,
 {
 	int rc = 0;
 	unsigned int refresh_rate = panel->cur_mode->timing.refresh_rate;
-
+	unsigned int us_per_frame = panel->cur_mode->priv_info->vsync_period;
 
 	if (pwm_switch_state_last != panel->oplus_pwm_switch_state) {
-		oplus_sde_early_wakeup(panel);
-		oplus_wait_for_vsync(panel);
-		if (refresh_rate == 60 || refresh_rate == 90)
-			oplus_need_to_sync_te(panel);
+		if (!oplus_ofp_get_hbm_state()) {
+			oplus_sde_early_wakeup(panel);
+			oplus_wait_for_vsync(panel);
+			if (refresh_rate == 60 || refresh_rate == 90) {
+				usleep_range(us_per_frame / 2, (us_per_frame / 2 + 200));
+			} else if (refresh_rate == 120) {
+				usleep_range(900, 920);
+			}
+		}
 
 		if (panel->pwm_power_on == true || panel->post_power_on) {
 			panel->pwm_power_on = false;
 			panel->post_power_on = false;
 			oplus_panel_directional_onepulse_poweron_handle(panel, pwm_switch_state_last);
+		}
+
+		if (pwm_switch_cmd == DSI_CMD_PWM_SWITCH_1PTOHP
+			|| pwm_switch_cmd == DSI_CMD_PWM_SWITCH_HPTO1P) {
+			oplus_panel_directional_onepulse_lhbm_off_handle(panel, pwm_switch_state_last);
 		}
 		usleep_range(120, 120);
 
@@ -503,8 +545,10 @@ void oplus_pwm_switch_send_next_cmdq_work_handler(struct work_struct *work)
 			oplus_sde_early_wakeup(panel);
 			oplus_wait_for_vsync(panel);
 		}
-		if (panel->cur_mode->timing.refresh_rate == 60) {
+		if (panel->cur_mode->timing.refresh_rate == 60 || panel->cur_mode->timing.refresh_rate == 90) {
 			oplus_need_to_sync_te(panel);
+		} else if (panel->cur_mode->timing.refresh_rate == 120) {
+			usleep_range(1000, 1020);
 		}
 		rc = dsi_panel_tx_cmd_set(panel, pwm_switch_next_cmdq);
 	}
@@ -537,7 +581,7 @@ int oplus_panel_pwm_switch_backlight(struct dsi_panel *panel, u32 bl_lvl, int *p
 		return rc;
 	}
 
-	if (bl_lvl == 0 || bl_lvl == 1)
+	if (bl_lvl == 0 || (!panel->oplus_priv.directional_onepulse_switch && bl_lvl == 1))
 		return rc;
 
 	if(panel->oplus_priv.directional_onepulse_switch) {

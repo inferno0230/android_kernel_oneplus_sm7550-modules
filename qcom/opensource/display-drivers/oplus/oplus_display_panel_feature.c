@@ -269,7 +269,7 @@ void oplus_panel_update_backlight(struct dsi_panel *panel,
 	oplus_adfr_high_precision_switch_state(panel);
 #endif /* OPLUS_FEATURE_DISPLAY_HIGH_PRECISION */
 
-	if (!panel->oplus_priv.need_sync && panel->cur_mode->priv_info->async_bl_delay) {
+	if (!panel->oplus_priv.need_sync && panel->cur_mode->priv_info->async_bl_delay && !pack_51) {
 		if (panel->oplus_priv.disable_delay_bl_count > 0) {
 			panel->oplus_priv.disable_delay_bl_count--;
 		} else if (panel->oplus_priv.disable_delay_bl_count == 0) {
@@ -292,12 +292,16 @@ void oplus_panel_update_backlight(struct dsi_panel *panel,
 
 	/* need to delay 51 to the next frame of pwm switch cmd */
 	if (switch_pwm_in_pre_bl == 1 && panel->oplus_priv.pwm_sw_cmd_te_cnt > 1) {
-		oplus_sde_early_wakeup(panel);
-		oplus_wait_for_vsync(panel);
-		if (panel->cur_mode->timing.refresh_rate == 90) {
-			oplus_need_to_sync_te(panel);
+		if (oplus_ofp_get_hbm_state()) {
+			LCD_INFO("lhbm on state, cancel delay 51 to next frame operation\n");
+		} else {
+			oplus_sde_early_wakeup(panel);
+			oplus_wait_for_vsync(panel);
+			if (panel->cur_mode->timing.refresh_rate == 90 || panel->cur_mode->timing.refresh_rate == 60) {
+				oplus_need_to_sync_te(panel);
+			}
+			LCD_INFO("bl_lvl %d delay to next frame for avoiding same frame with pwm_switch\n", bl_lvl);
 		}
-		LCD_INFO("bl_lvl %d delay to next frame for avoiding same frame with pwm_switch\n", bl_lvl);
 	}
 	switch_pwm_in_pre_bl = 0;
 
@@ -327,6 +331,12 @@ void oplus_panel_update_backlight(struct dsi_panel *panel,
 		oplus_temp_compensation_first_half_frame_cmd_set(panel);
 	}
 #endif /* OPLUS_FEATURE_DISPLAY_TEMP_COMPENSATION */
+
+#ifdef OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT
+	if (oplus_ofp_is_supported()) {
+		oplus_ofp_lhbm_dbv_alpha_update(panel, bl_lvl, false);
+	}
+#endif /* OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT */
 
 	SDE_ATRACE_INT("current_bl_lvl", bl_lvl);
 

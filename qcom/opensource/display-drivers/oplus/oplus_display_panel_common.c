@@ -2646,7 +2646,7 @@ int oplus_wait_for_vsync(struct dsi_panel *panel)
 		return -ENODEV;
 	}
 
-	if (panel->power_mode != SDE_MODE_DPMS_ON || !panel->panel_initialized) {
+	if (panel->power_mode == SDE_MODE_DPMS_OFF || !panel->panel_initialized) {
 		LCD_WARN("display panel in off status\n");
 		return -ENODEV;
 	}
@@ -2762,7 +2762,7 @@ void oplus_panel_switch_to_sync_te(struct dsi_panel *panel)
 		}
 	} else if (vsync_cost > vsync_width) {
 		frame_end = us_per_frame - vsync_cost;
-		if ((0 <= frame_end) && (frame_end < debounce_time)) {
+		if (frame_end < debounce_time) {
 			if (panel->last_refresh_rate == 60) {
 				usleep_range(9 * 1000, (9 * 1000) + 100);
 			} else if (panel->last_refresh_rate == 120) {

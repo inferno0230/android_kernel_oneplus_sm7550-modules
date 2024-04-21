@@ -2162,6 +2162,7 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-lhbm-pressed-icon-grayscale-command",
 	"qcom,mdss-dsi-lhbm-pressed-icon-on-command",
 	"qcom,mdss-dsi-lhbm-pressed-icon-off-command",
+	"qcom,mdss-dsi-lhbm-dbv-alpha-command",
 	"qcom,mdss-dsi-aor-on-command",
 	"qcom,mdss-dsi-aor-off-command",
 	"qcom,mdss-dsi-aod-high-mode-command",
@@ -2349,6 +2350,7 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-lhbm-pressed-icon-grayscale-command-state",
 	"qcom,mdss-dsi-lhbm-pressed-icon-on-command-state",
 	"qcom,mdss-dsi-lhbm-pressed-icon-off-command-state",
+	"qcom,mdss-dsi-lhbm-dbv-alpha-command-state",
 	"qcom,mdss-dsi-aor-on-command-state",
 	"qcom,mdss-dsi-aor-off-command-state",
 	"qcom,mdss-dsi-aod-high-mode-command-state",
@@ -5485,6 +5487,10 @@ int dsi_panel_switch(struct dsi_panel *panel)
 	int rc = 0;
 #if defined(CONFIG_PXLW_IRIS)
 	enum dsi_cmd_set_type TIMING_SWITCH_TYPE_ID = DSI_CMD_SET_TIMING_SWITCH;
+	if (oplus_panel_pwm_onepulse_is_used(panel) &&
+		!strcmp(panel->name, "AA551 P 3 A0004 dsc cmd mode panel")) {
+		TIMING_SWITCH_TYPE_ID = DSI_CMD_TIMMING_PWM_SWITCH_ONEPULSE;
+	}
 	if (is_project(22811))
 		TIMING_SWITCH_TYPE_ID = DSI_CMD_SET_IRIS_SWITCH_TSP_VSYNC_SCANLINE;
 #endif
@@ -5509,6 +5515,14 @@ int dsi_panel_switch(struct dsi_panel *panel)
 	} else if(oplus_panel_pwm_onepulse_is_enabled(panel)) {
 		oplus_sde_early_wakeup(panel);
 		oplus_wait_for_vsync(panel);
+	}
+	/* set pwm state flag for timing switch will change panel pwm state*/
+	if (oplus_panel_pwm_onepulse_is_enabled(panel)
+		&& panel->oplus_priv.directional_onepulse_switch) {
+		if (panel->bl_config.bl_level > panel->bl_config.pwm_bl_threshold)
+			panel->oplus_pwm_switch_state = PWM_SWITCH_ONEPULSE_STATE;
+		else
+			panel->oplus_pwm_switch_state = PWM_SWITCH_HPWM_STATE;
 	}
 #endif /* OPLUS_FEATURE_DISPLAY */
 

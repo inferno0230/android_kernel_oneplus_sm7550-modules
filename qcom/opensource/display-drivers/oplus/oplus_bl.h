@@ -309,5 +309,6 @@ void oplus_panel_backlight_demura_dbv_switch(struct dsi_panel *panel, u32 bl_lvl
 void oplus_panel_set_aod_off_te_timestamp(struct dsi_panel *panel);
 void oplus_panel_set_pwm_switch_next_cmdq(u32 next_cmdq);
 void oplus_pwm_switch_send_next_cmdq_work_handler(struct work_struct *work);
+void oplus_panel_set_lhbm_off_te_timestamp(struct dsi_panel *panel);
 #endif /* __OPLUS_BL_H__ */
 
