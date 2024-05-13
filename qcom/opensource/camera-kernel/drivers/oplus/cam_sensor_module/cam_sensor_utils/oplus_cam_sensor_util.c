@@ -34,7 +34,7 @@ int cam_sensor_core_power_up_vio(struct cam_sensor_power_setting *power_setting,
 				(power_setting->delay * 1000));
 
 			CAM_DBG(CAM_SENSOR, "SENSOR_VIO seq_type:%d power_setting->delay = %d",
-				power_setting->seq_type, power_setting->delay);
+				power_setting->seq_type, (int)power_setting->delay);
 
 			rc = cam_soc_util_regulator_disable(
 				soc_info->rgltr[vreg_idx],
@@ -49,11 +49,11 @@ int cam_sensor_core_power_up_vio(struct cam_sensor_power_setting *power_setting,
 					soc_info->rgltr_name[vreg_idx]);
 				return rc;
 			}
-			usleep_range((power_setting->delay * 1000) + 2000,
-				(power_setting->delay * 1000) + 2000);
+			usleep_range((power_setting->delay * 1000) + 500,
+				(power_setting->delay * 1000) + 500);
 
-			CAM_DBG(CAM_SENSOR, "SENSOR_VIO seq_type:%d regulator_disable",
-				power_setting->seq_type, power_setting->delay);
+			CAM_DBG(CAM_SENSOR, "SENSOR_VIO seq_type:%d regulator_disable %d",
+				power_setting->seq_type, (int)power_setting->delay);
 		}
 	}
 
