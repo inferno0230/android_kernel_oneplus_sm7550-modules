@@ -2647,7 +2647,12 @@ int oplus_ofp_aod_off_handle(void *dsi_display)
 	/* update backlight after exit aod mode */
 	OFP_INFO("aod off set backlight\n");
 	mutex_lock(&display->panel->panel_lock);
-	dsi_panel_set_backlight(display->panel, display->panel->bl_config.bl_level);
+	if ((display->panel->power_mode == SDE_MODE_DPMS_OFF)
+			|| !display->panel->panel_initialized) {
+		OFP_INFO("Dont set backlight when panel already power off");
+	} else {
+		dsi_panel_set_backlight(display->panel, display->panel->bl_config.bl_level);
+	}
 	mutex_unlock(&display->panel->panel_lock);
 
 	OPLUS_OFP_TRACE_END("oplus_ofp_aod_off_handle");

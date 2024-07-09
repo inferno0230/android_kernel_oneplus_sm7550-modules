@@ -2625,6 +2625,11 @@ int oplus_sde_early_wakeup(struct dsi_panel *panel)
 		DSI_ERR("invalid display params\n");
 		return -EINVAL;
 	}
+	/* when SDE_MODE_DPMS_OFF, wake up SDE_ENC_RC may case _sde_encoder_rc_stop error */
+	if (d_display->panel->power_mode == SDE_MODE_DPMS_OFF) {
+		OFP_INFO("[%s]:panel power off\n", __func__);
+		return -EFAULT;
+	}
 	drm_enc = d_display->bridge->base.encoder;
 	if (!drm_enc) {
 		DSI_ERR("invalid encoder params\n");

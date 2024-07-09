@@ -65,6 +65,7 @@ struct oplus_ofp_params {
 													 bit(5):pressed icon brightness adaptation
 													 bit(6):ultrasonic fingerprint
 													 bit(7):ultra low power aod
+													 bit(8):fod color feature flag
 													*/
 	bool fp_type_compatible_mode;					/* indicates whether fp type compatible mode is set or not */
 	bool need_to_bypass_gamut;						/* indicates whether gamut needs to be bypassed in aod/fod scenarios or not */
