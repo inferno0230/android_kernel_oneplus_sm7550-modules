@@ -16,7 +16,7 @@
 #include "dsi_iris_memc.h"
 #include "dsi_iris_dts_fw.h"
 #include "dsi_iris_timing_switch_def.h"
-
+#include "dsi_iris_pq.h"
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 
@@ -565,6 +565,9 @@ static void _iris_pre_fps_switch(void)
 
 static void _iris_switch_fps_impl(void)
 {
+	if (chip_type == CHIP_IRIS7P)
+		iris_pwil_dport_disable_i7p(true, 1);
+
 	_iris_pre_fps_switch();
 	_iris_send_fps_switch_pkt();
 

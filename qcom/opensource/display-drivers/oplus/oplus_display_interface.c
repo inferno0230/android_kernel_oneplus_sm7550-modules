@@ -955,6 +955,7 @@ int oplus_panel_pwm_switch_cmdq_delay_handle(void *dsi_panel, enum dsi_cmd_set_t
 	OPLUS_LCD_TRACE_BEGIN("oplus_panel_pwm_switch_cmdq_delay_handle");
 
 	if (panel->oplus_priv.pwm_sw_cmd_te_cnt > 0 && panel->oplus_priv.pwm_sw_cmd_te_cnt <= 2) {
+#ifdef OPLUS_FEATURE_DISPLAY_ADFR
 		if ((type >= DSI_CMD_ADFR_MIN_FPS_0 && type <= DSI_CMD_HPWM_ADFR_MIN_FPS_14)
 			|| type == DSI_CMD_ADFR_HIGH_PRECISION_FPS_0
 			|| type == DSI_CMD_HPWM_ADFR_HIGH_PRECISION_FPS_0) {
@@ -966,7 +967,7 @@ int oplus_panel_pwm_switch_cmdq_delay_handle(void *dsi_panel, enum dsi_cmd_set_t
 			OPLUS_LCD_TRACE_END("oplus_panel_pwm_switch_cmdq_delay_handle");
 			return 1;
 		}
-
+#endif
 		LCD_INFO("[%s] dsi_cmd: %s block to the next 2 frames due to 2 frames cmdq\n",
 					panel->oplus_priv.vendor_name,
 					cmd_set_prop_map[type]);

@@ -484,7 +484,7 @@ static int oplus_panel_directional_onepulse_cmd_tx(struct dsi_panel *panel,
 			oplus_wait_for_vsync(panel);
 			if (refresh_rate == 60 || refresh_rate == 90) {
 				usleep_range(us_per_frame / 2, (us_per_frame / 2 + 200));
-			} else if(refresh_rate == 120) {
+			} else if (refresh_rate == 120) {
 				usleep_range(900, 920);
 			}
 		}

@@ -160,7 +160,9 @@ static int oplus_ofp_fp_type_compatible_mode_config(void)
 int oplus_ofp_init(void *dsi_panel)
 {
 	int rc = 0;
-	unsigned int fp_type = 0;
+	int length = 0;
+	unsigned int i = 0;
+	unsigned int value = 0;
 	struct dsi_panel *panel = dsi_panel;
 	struct dsi_parser_utils *utils = NULL;
 	struct oplus_ofp_params *p_oplus_ofp_params = oplus_ofp_get_params(oplus_ofp_display_id);
@@ -199,13 +201,13 @@ int oplus_ofp_init(void *dsi_panel)
 
 	mutex_init(&oplus_ofp_lock);
 
-	rc = utils->read_u32(utils->data, "oplus,ofp-fp-type", &fp_type);
+	rc = utils->read_u32(utils->data, "oplus,ofp-fp-type", &value);
 	if (rc) {
 		OFP_INFO("failed to read oplus,ofp-fp-type, rc=%d\n", rc);
 		/* set default value to BIT(0) */
 		p_oplus_ofp_params->fp_type = BIT(0);
 	} else {
-		p_oplus_ofp_params->fp_type = fp_type;
+		p_oplus_ofp_params->fp_type = value;
 	}
 
 	OFP_INFO("fp_type:0x%x\n", p_oplus_ofp_params->fp_type);
@@ -260,6 +262,55 @@ int oplus_ofp_init(void *dsi_panel)
 			/* indicates whether lhbm pressed icon gamma needs to be read and updated or not */
 			p_oplus_ofp_params->need_to_update_lhbm_pressed_icon_gamma = utils->read_bool(utils->data, "oplus,ofp-need-to-update-lhbm-pressed-icon-gamma");
 			OFP_INFO("need_to_update_lhbm_pressed_icon_gamma:%d\n", p_oplus_ofp_params->need_to_update_lhbm_pressed_icon_gamma);
+
+						/* indicates which line the dbv alpha register is in the cmd set */
+			rc = utils->read_u32(utils->data, "oplus,ofp-lhbm-dbv-alpha-cmd-index", &value);
+			if (rc) {
+				OFP_ERR("failed to read oplus,ofp-lhbm-dbv-alpha-cmd-index, rc=%d\n", rc);
+			} else {
+				p_oplus_ofp_params->lhbm_dbv_alpha_cmd_index = value;
+			}
+			OFP_INFO("oplus_ofp_lhbm_dbv_alpha_cmd_index:%u\n", p_oplus_ofp_params->lhbm_dbv_alpha_cmd_index);
+			OPLUS_OFP_TRACE_INT("oplus_ofp_lhbm_dbv_alpha_cmd_index", p_oplus_ofp_params->lhbm_dbv_alpha_cmd_index);
+
+			/* indicates where the dbv alpha register is in the line instruction */
+			rc = utils->read_u32(utils->data, "oplus,ofp-lhbm-dbv-alpha-register-offset", &value);
+			if (rc) {
+				OFP_ERR("failed to read oplus,ofp-lhbm-dbv-alpha-register-offset, rc=%d\n", rc);
+			} else {
+				p_oplus_ofp_params->lhbm_dbv_alpha_register_offset = value;
+			}
+			OFP_INFO("oplus_ofp_lhbm_dbv_alpha_register_offset:%u\n", p_oplus_ofp_params->lhbm_dbv_alpha_register_offset);
+			OPLUS_OFP_TRACE_INT("oplus_ofp_lhbm_dbv_alpha_register_offset", p_oplus_ofp_params->lhbm_dbv_alpha_register_offset);
+
+			/* the lhbm dbv alpha value which represents the alpha register setting corresponding to the backlight level */
+			length = utils->count_u32_elems(utils->data, "oplus,ofp-lhbm-dbv-alpha-value");
+			if (length < 0) {
+				OFP_ERR("failed to get the count of oplus,ofp-lhbm-dbv-alpha-value\n");
+				rc = -EINVAL;
+			} else if (!p_oplus_ofp_params->lhbm_dbv_alpha_value) {
+				p_oplus_ofp_params->lhbm_dbv_alpha_value = kzalloc(length * sizeof(unsigned int), GFP_KERNEL);
+				if (!p_oplus_ofp_params->lhbm_dbv_alpha_value) {
+					OFP_ERR("failed to kzalloc lhbm_dbv_alpha_value\n");
+					rc = -ENOMEM;
+				} else {
+					rc = utils->read_u32_array(utils->data, "oplus,ofp-lhbm-dbv-alpha-value", p_oplus_ofp_params->lhbm_dbv_alpha_value, length);
+					if (rc) {
+						OFP_ERR("failed to read oplus,ofp-lhbm-dbv-alpha-value\n");
+						rc = -EINVAL;
+						kfree(p_oplus_ofp_params->lhbm_dbv_alpha_value);
+						p_oplus_ofp_params->lhbm_dbv_alpha_value = NULL;
+					} else {
+						OFP_INFO("property:oplus,ofp-lhbm-dbv-alpha-value,length:%u\n", length);
+						for (i = 0; i < length; i++) {
+							OFP_DEBUG("lhbm_dbv_alpha_value[%u]=%u\n", i, p_oplus_ofp_params->lhbm_dbv_alpha_value[i]);
+						}
+						p_oplus_ofp_params->lhbm_dbv_alpha_value_count = length;
+						OFP_INFO("oplus_ofp_lhbm_dbv_alpha_value_count:%u\n", p_oplus_ofp_params->lhbm_dbv_alpha_value_count);
+						OPLUS_OFP_TRACE_INT("oplus_ofp_lhbm_dbv_alpha_value_count", p_oplus_ofp_params->lhbm_dbv_alpha_value_count);
+					}
+				}
+			}
 		}
 	}
 
@@ -1209,27 +1260,25 @@ int oplus_ofp_lhbm_backlight_update(void *sde_encoder_virt, void *dsi_panel, uns
 		hbm_enable = sde_connector_get_property(c_conn->base.state, CONNECTOR_PROP_HBM_ENABLE);
 		new_icon_layer_status = hbm_enable & OPLUS_OFP_PROPERTY_ICON_LAYER;
 
-		if (!p_oplus_ofp_params->aod_unlocking && !p_oplus_ofp_params->doze_active) {
-			if (!last_icon_layer_status && new_icon_layer_status) {
-				if (display->panel->bl_config.bl_level > OPLUS_OFP_900NIT_DBV_LEVEL) {
-					OFP_INFO("set backlight level to OPLUS_OFP_900NIT_DBV_LEVEL after icon on\n");
-					mutex_lock(&display->panel->panel_lock);
-					rc = dsi_panel_set_backlight(display->panel, OPLUS_OFP_900NIT_DBV_LEVEL);
-					if (rc) {
-						OFP_ERR("unable to set backlight\n");
-					}
-					mutex_unlock(&display->panel->panel_lock);
+		if (!last_icon_layer_status && new_icon_layer_status) {
+			if ((display->panel->bl_config.bl_level > OPLUS_OFP_900NIT_DBV_LEVEL) && !p_oplus_ofp_params->doze_active) {
+				OFP_INFO("set backlight level to OPLUS_OFP_900NIT_DBV_LEVEL after icon on\n");
+				mutex_lock(&display->panel->panel_lock);
+				rc = dsi_panel_set_backlight(display->panel, OPLUS_OFP_900NIT_DBV_LEVEL);
+				if (rc) {
+					OFP_ERR("unable to set backlight\n");
 				}
-			} else if (last_icon_layer_status && !new_icon_layer_status) {
-				if (display->panel->bl_config.bl_level > OPLUS_OFP_900NIT_DBV_LEVEL) {
-					OFP_INFO("recovery backlight level to %u after icon off\n", display->panel->bl_config.bl_level);
-					mutex_lock(&display->panel->panel_lock);
-					rc = dsi_panel_set_backlight(display->panel, display->panel->bl_config.bl_level);
-					if (rc) {
-						OFP_ERR("unable to set backlight\n");
-					}
-					mutex_unlock(&display->panel->panel_lock);
+				mutex_unlock(&display->panel->panel_lock);
+			}
+		} else if (last_icon_layer_status && !new_icon_layer_status) {
+			if ((display->panel->bl_config.bl_level > OPLUS_OFP_900NIT_DBV_LEVEL) && !oplus_ofp_get_aod_state()) {
+				OFP_INFO("recovery backlight level to %u after icon off\n", display->panel->bl_config.bl_level);
+				mutex_lock(&display->panel->panel_lock);
+				rc = dsi_panel_set_backlight(display->panel, display->panel->bl_config.bl_level);
+				if (rc) {
+					OFP_ERR("unable to set backlight\n");
 				}
+				mutex_unlock(&display->panel->panel_lock);
 			}
 		}
 
@@ -1253,14 +1302,114 @@ int oplus_ofp_lhbm_backlight_update(void *sde_encoder_virt, void *dsi_panel, uns
 		}
 
 		hbm_enable = sde_connector_get_property(c_conn->base.state, CONNECTOR_PROP_HBM_ENABLE);
-		if (!p_oplus_ofp_params->aod_unlocking && !p_oplus_ofp_params->doze_active
-				&& (hbm_enable & OPLUS_OFP_PROPERTY_ICON_LAYER) && (*bl_level > OPLUS_OFP_900NIT_DBV_LEVEL)) {
+		if ((hbm_enable & OPLUS_OFP_PROPERTY_ICON_LAYER) && (*bl_level > OPLUS_OFP_900NIT_DBV_LEVEL)) {
 			*bl_level = OPLUS_OFP_900NIT_DBV_LEVEL;
 			OFP_INFO("icon layer is on and backlight lvl is greater than OPLUS_OFP_900NIT_DBV_LEVEL, set backlight to OPLUS_OFP_900NIT_DBV_LEVEL\n");
 		}
 	}
 
 	OPLUS_OFP_TRACE_END("oplus_ofp_lhbm_backlight_update");
+
+	OFP_DEBUG("end\n");
+
+	return rc;
+}
+
+/*
+ in the manual lhbm dbv alpha solution, adjust the corresponding lhbm dbv alpha registers when backlight changing 
+ after entering the local hbm mode
+*/
+int oplus_ofp_lhbm_dbv_alpha_update(void *dsi_panel, unsigned int bl_level, bool mutex_lock)
+{
+	unsigned char *tx_buf = NULL;
+	int rc = 0;
+	unsigned int lcm_cmd_count = 0;
+	struct dsi_panel *panel = dsi_panel;
+	struct dsi_display *display = NULL;
+	struct dsi_cmd_desc *cmds = NULL;
+	struct oplus_ofp_params *p_oplus_ofp_params = oplus_ofp_get_params(oplus_ofp_display_id);
+
+	OFP_DEBUG("start\n");
+
+	if (!oplus_ofp_local_hbm_is_enabled()) {
+		OFP_DEBUG("local hbm is not enabled, no need to update lhbm dbv alpha\n");
+		return 0;
+	}
+
+	if (!panel || !panel->cur_mode || !panel->cur_mode->priv_info || !p_oplus_ofp_params) {
+		OFP_ERR("Invalid panel params\n");
+		return -EINVAL;
+	}
+
+	display = to_dsi_display(panel->host);
+	if (!display) {
+		OFP_ERR("Invalid display param\n");
+		return -EINVAL;
+	}
+
+	if (!p_oplus_ofp_params->lhbm_dbv_alpha_value) {
+		OFP_DEBUG("lhbm_dbv_alpha_value is not config, no need to update lhbm dbv alpha\n");
+		return 0;
+	}
+
+	if (!dsi_panel_initialized(panel)) {
+		OFP_ERR("should not update lhbm dbv alpha if panel is not initialized\n");
+		return -EFAULT;
+	}
+
+	if (!oplus_ofp_get_hbm_state()) {
+		OFP_DEBUG("should not update lhbm dbv alpha if hbm state is false\n");
+		return 0;
+	}
+
+	OPLUS_OFP_TRACE_BEGIN("oplus_ofp_lhbm_dbv_alpha_update");
+
+	cmds = panel->cur_mode->priv_info->cmd_sets[DSI_CMD_LHBM_DBV_ALPHA].cmds;
+	lcm_cmd_count = panel->cur_mode->priv_info->cmd_sets[DSI_CMD_LHBM_DBV_ALPHA].count;
+
+	if (lcm_cmd_count < (p_oplus_ofp_params->lhbm_dbv_alpha_cmd_index + 1)) {
+		OFP_ERR("wrong lcm cmd count\n");
+		rc = -EINVAL;
+		goto end;
+	} else if (cmds[p_oplus_ofp_params->lhbm_dbv_alpha_cmd_index].msg.tx_len < (p_oplus_ofp_params->lhbm_dbv_alpha_register_offset + 2)) {
+		OFP_ERR("wrong tx_len\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	tx_buf = (unsigned char *)cmds[p_oplus_ofp_params->lhbm_dbv_alpha_cmd_index].msg.tx_buf;
+	if (!tx_buf) {
+		OFP_ERR("Invalid tx_buf param\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (bl_level >= p_oplus_ofp_params->lhbm_dbv_alpha_value_count) {
+		tx_buf[p_oplus_ofp_params->lhbm_dbv_alpha_register_offset] =
+			p_oplus_ofp_params->lhbm_dbv_alpha_value[p_oplus_ofp_params->lhbm_dbv_alpha_value_count - 1] >> 8;
+		tx_buf[p_oplus_ofp_params->lhbm_dbv_alpha_register_offset + 1] =
+			p_oplus_ofp_params->lhbm_dbv_alpha_value[p_oplus_ofp_params->lhbm_dbv_alpha_value_count - 1] & 0x0FF;
+	} else {
+		tx_buf[p_oplus_ofp_params->lhbm_dbv_alpha_register_offset] = p_oplus_ofp_params->lhbm_dbv_alpha_value[bl_level] >> 8;
+		tx_buf[p_oplus_ofp_params->lhbm_dbv_alpha_register_offset + 1] = p_oplus_ofp_params->lhbm_dbv_alpha_value[bl_level] & 0x0FF;
+	}
+
+	OFP_INFO("bl_level:%u, lhbm dbv alpha:0x%02X 0x%02X\n", bl_level, tx_buf[p_oplus_ofp_params->lhbm_dbv_alpha_register_offset],
+																tx_buf[p_oplus_ofp_params->lhbm_dbv_alpha_register_offset + 1]);
+	if (mutex_lock) {
+		rc = oplus_ofp_display_cmd_set(display, DSI_CMD_LHBM_DBV_ALPHA);
+		if (rc) {
+			OFP_ERR("[%s] failed to send DSI_CMD_LHBM_DBV_ALPHA cmds, rc=%d\n", display->name, rc);
+		}
+	} else {
+		rc = oplus_ofp_panel_cmd_set_nolock(panel, DSI_CMD_LHBM_DBV_ALPHA);
+		if (rc) {
+			OFP_ERR("[%s] failed to send DSI_CMD_LHBM_DBV_ALPHA cmds, rc=%d\n", panel->name, rc);
+		}
+	}
+
+end:
+	OPLUS_OFP_TRACE_END("oplus_ofp_lhbm_dbv_alpha_update");
 
 	OFP_DEBUG("end\n");
 
@@ -1518,6 +1667,10 @@ static int oplus_ofp_set_panel_hbm(void *sde_connector, bool hbm_en)
 			rc = oplus_ofp_display_cmd_set(display, DSI_CMD_LHBM_PRESSED_ICON_ON);
 			if (rc) {
 				OFP_ERR("[%s] failed to send DSI_CMD_LHBM_PRESSED_ICON_ON cmds, rc=%d\n", display->name, rc);
+			}
+			rc = oplus_ofp_lhbm_dbv_alpha_update(display->panel, oplus_last_backlight, true);
+			if (rc) {
+				OFP_ERR("failed to update lhbm dbv alpha\n");
 			}
 		} else {
 			rc = oplus_ofp_display_cmd_set(display, DSI_CMD_LHBM_PRESSED_ICON_OFF);
@@ -2498,7 +2651,12 @@ int oplus_ofp_aod_off_handle(void *dsi_display)
 	/* update backlight after exit aod mode */
 	OFP_INFO("aod off set backlight\n");
 	mutex_lock(&display->panel->panel_lock);
-	dsi_panel_set_backlight(display->panel, display->panel->bl_config.bl_level);
+	if ((display->panel->power_mode == SDE_MODE_DPMS_OFF)
+			|| !display->panel->panel_initialized) {
+		OFP_INFO("Dont set backlight when panel already power off");
+	} else {
+		dsi_panel_set_backlight(display->panel, display->panel->bl_config.bl_level);
+	}
 	mutex_unlock(&display->panel->panel_lock);
 
 	OPLUS_OFP_TRACE_END("oplus_ofp_aod_off_handle");
@@ -2670,6 +2828,11 @@ void oplus_ofp_aod_off_set_work_handler(struct work_struct *work_item)
 
 	if (!display) {
 		OFP_ERR("Invalid params\n");
+		return;
+	}
+
+	if (display->panel->power_mode == SDE_MODE_DPMS_OFF) {
+		OFP_INFO("Break aod off handle when panel already power off");
 		return;
 	}
 

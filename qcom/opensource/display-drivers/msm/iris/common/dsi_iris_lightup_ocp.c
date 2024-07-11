@@ -433,17 +433,17 @@ int iris_dsi_send_cmds(struct dsi_panel *panel, struct dsi_cmd_desc *cmds,
 	u8 vc_id_bak;
 	
 #ifdef OPLUS_FEATURE_DISPLAY
-		char null_payload[28] = {
-					 0xF4, 0xFF, 0xFF, 0xFF,
-					 0x10, 0xC0, 0x25, 0xF1, 0x09, 0x06, 0x00, 0x05,
-					 0x14, 0xC0, 0x25, 0xF1, 0x12, 0x34, 0x56, 0x78,
-					 0x14, 0xC0, 0x25, 0xF1, 0xAB, 0xCD, 0x00, 0x00};
-		struct dsi_cmd_desc_pxlw iris_ocp_cmd_pxlw[] = {
-			{{0, MIPI_DSI_GENERIC_LONG_WRITE, 0x40, 0, 0, 28, null_payload, 0, NULL},
-			1, 0} };
-		struct dsi_cmd_desc iris_ocp_cmd[1];
-		memset(&iris_ocp_cmd, 0x00, sizeof(iris_ocp_cmd));
-		remap_to_qcom_style(iris_ocp_cmd, iris_ocp_cmd_pxlw, 1);
+	char null_payload[28] = {
+		0xF4, 0xFF, 0xFF, 0xFF,
+		0x10, 0xC0, 0x25, 0xF1, 0x09, 0x06, 0x00, 0x05,
+		0x14, 0xC0, 0x25, 0xF1, 0x12, 0x34, 0x56, 0x78,
+		0x14, 0xC0, 0x25, 0xF1, 0xAB, 0xCD, 0x00, 0x00};
+	struct dsi_cmd_desc_pxlw iris_ocp_cmd_pxlw[] = {
+		{{0, MIPI_DSI_GENERIC_LONG_WRITE, 0x40, 0, 0, 28, null_payload, 0, NULL},
+		1, 0} };
+	struct dsi_cmd_desc iris_ocp_cmd[1];
+	memset(&iris_ocp_cmd, 0x00, sizeof(iris_ocp_cmd));
+	remap_to_qcom_style(iris_ocp_cmd, iris_ocp_cmd_pxlw, 1);
 #endif /* OPLUS_FEATURE_DISPLAY */
 
 	pcfg = iris_get_cfg();

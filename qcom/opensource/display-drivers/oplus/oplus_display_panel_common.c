@@ -59,7 +59,6 @@ EXPORT_SYMBOL(oplus_debug_max_brightness);
 EXPORT_SYMBOL(oplus_dither_enable);
 extern const char *cmd_set_prop_map[];
 extern bool is_gamma_panel;
-extern int switch_pwm_in_pre_bl;
 
 extern int dsi_display_read_panel_reg(struct dsi_display *display, u8 cmd,
 		void *data, size_t len);
@@ -2655,6 +2654,11 @@ int oplus_sde_early_wakeup(struct dsi_panel *panel)
 		DSI_ERR("invalid display params\n");
 		return -EINVAL;
 	}
+	/* when SDE_MODE_DPMS_OFF, wake up SDE_ENC_RC may case _sde_encoder_rc_stop error */
+	if (d_display->panel->power_mode == SDE_MODE_DPMS_OFF) {
+		OFP_INFO("[%s]:panel power off\n", __func__);
+		return -EFAULT;
+	}
 	drm_enc = d_display->bridge->base.encoder;
 	if (!drm_enc) {
 		DSI_ERR("invalid encoder params\n");
@@ -2792,7 +2796,7 @@ void oplus_panel_switch_to_sync_te(struct dsi_panel *panel)
 		}
 	} else if (vsync_cost > vsync_width) {
 		frame_end = us_per_frame - vsync_cost;
-		if ((0 <= frame_end) && (frame_end < debounce_time)) {
+		if (frame_end < debounce_time) {
 			if (panel->last_refresh_rate == 60) {
 				usleep_range(9 * 1000, (9 * 1000) + 100);
 			} else if (panel->last_refresh_rate == 120) {
@@ -2822,12 +2826,6 @@ void oplus_set_pwm_switch_cmd_te_flag(struct sde_connector *c_conn)
 
 	if (display->panel->oplus_priv.pwm_sw_cmd_te_cnt > 0) {
 		display->panel->oplus_priv.pwm_sw_cmd_te_cnt--;
-	} else if (display->panel->oplus_priv.pwm_sw_cmd_te_cnt < 0) {
-		/* should never happen */
-		display->panel->oplus_priv.pwm_sw_cmd_te_cnt = 0;
-	}
-	if (switch_pwm_in_pre_bl > 0) {
-		switch_pwm_in_pre_bl = 0;
 	}
 }
 
