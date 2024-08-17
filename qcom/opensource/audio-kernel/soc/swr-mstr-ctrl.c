@@ -1725,8 +1725,11 @@ static int swrm_slvdev_datapath_control(struct swr_master *master, bool enable)
 		}
 		clear_bit(DISABLE_PENDING, &swrm->port_req_pending);
 		swrm_cleanup_disabled_port_reqs(master);
+		#ifdef OPLUS_ARCH_EXTENDS
+		/* Modify for fix noise, case 05404028 */
 		/* reset enable_count to 0 in SSR if master is already down */
 		swrm->pcm_enable_count = 0;
+		#endif /* OPLUS_ARCH_EXTENDS */
 		if (!swrm_is_port_en(master)) {
 			dev_dbg(&master->dev, "%s: pm_runtime auto suspend triggered\n",
 				__func__);
@@ -2877,7 +2880,10 @@ static int swrm_probe(struct platform_device *pdev)
 		dev_err(swrm->dev, "missing port mapping\n");
 		goto err_pdata_fail;
 	}
+	#ifdef OPLUS_ARCH_EXTENDS
+	/* Modify for fix noise, case 05404028 */
 	swrm->pcm_enable_count = 0;
+	#endif /* OPLUS_ARCH_EXTENDS */
 	map_length = map_size / (3 * sizeof(u32));
 	if (num_ports > SWR_MSTR_PORT_LEN) {
 		dev_err(&pdev->dev, "%s:invalid number of swr ports\n",
